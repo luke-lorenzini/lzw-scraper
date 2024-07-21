@@ -1,10 +1,9 @@
+use std::collections::HashMap;
 use std::fs;
-use std::collections::{HashMap, VecDeque};
 
 fn main() {
-    let message = fs::read_to_string("./input_text").expect("Unable to read file");
-    // println!("{}", message);
-    // let message = "TOBEORNOTTOBEORTOBEORNOT";
+    // let message = fs::read_to_string("./input_text").expect("Unable to read file");
+    let message = fs::read("./input_text").expect("Unable to read file");
 
     let mut my_map = HashMap::new();
     my_map.insert("A".to_owned(), 65);
@@ -35,36 +34,35 @@ fn main() {
     my_map.insert("Z".to_owned(), 90);
 
     let mut last_entry = 256;
-    let mut x: VecDeque<_> = message.chars().collect();
-    let mut s = String::from(x.pop_front().unwrap());
+    let mut s = (message[0] as char).to_string();
+    // println!("{:?}", s);
 
-    let mut res: Vec<usize> = Vec::default();
-    
-    x
-    .into_iter()
-    .for_each(|c|
-        {
-            let sc = format!("{}{}", s, c);
-            
-            match my_map.get(&sc) {
-                Some(_) => {
-                        // println!("{}\t{}\t{}\tY\tx", s, c, sc);
-                        s = format!("{}{}", s, c);
-                    },
-                None => {
-                    res.push(*my_map.get(s.as_str()).unwrap());
-                    // println!("{}\t{}\t{}\tN\t{}", s, c, sc, my_map.get(s.as_str()).unwrap());
-                    last_entry += 1;
-                    my_map.insert(sc, last_entry);
-                    s = String::from(c);
-                }
-            };
-        })
-        ;
+    let mut res: Vec<u32> = Vec::default();
+
+    message.into_iter().skip(1).for_each(|c| {
+        let sc = format!("{}{}", s, c as char);
+        // println!("{:?}", sc);
+
+        match my_map.get(&sc) {
+            Some(_) => {
+                // println!("{}\t{}\t{}\tY\tx", s, c, sc);
+                s = format!("{}{}", s, c as char);
+            }
+            None => {
+                res.push(*my_map.get(s.as_str()).unwrap());
+                // println!("{}\t{}\t{}\tN\t{}", s, c, sc, my_map.get(s.as_str()).unwrap());
+                last_entry += 1;
+                my_map.insert(sc, last_entry);
+                s = (c as char).to_string();
+            }
+        };
+    });
 
     res.push(*my_map.get(s.as_str()).unwrap());
 
-    let expected_result = vec![84, 79, 66, 69, 79, 82, 78, 79, 84, 257, 259, 261, 266, 260, 262, 264];
+    let expected_result = vec![
+        84, 79, 66, 69, 79, 82, 78, 79, 84, 257, 259, 261, 266, 260, 262, 264,
+    ];
     println!("{:?}", res);
 
     assert_eq!(expected_result, res);
