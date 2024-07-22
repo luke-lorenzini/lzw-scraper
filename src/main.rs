@@ -6,16 +6,10 @@ use std::fs;
 fn main() {
     let message = fs::read("./input_text").expect("Unable to read file");
 
-    // let (comp, decomp) = build_custom_maps();
-    // let mut thing = LZW::new(comp, decomp);
     let mut lzw = LZW::default();
 
-    // let uncompressed_size = message.len() as u32;
     let res = lzw.compress(message);
     println!("{:?}", res);
-    // let compressed_size = res.len() as u32;
-    // let x = thing.calculate_compression_ratio(uncompressed_size, compressed_size);
-    // println!("{:?}", x);
 
     let res = lzw.decompress(res);
     println!("{:?}", res);

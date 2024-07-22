@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-// #[derive(Default)]
 pub struct LZW {
     compression_map: HashMap<String, u32>,
     decompression_map: HashMap<u32, String>,
@@ -37,37 +36,21 @@ impl LZW {
     pub fn decompress(&mut self, message: Vec<u32>) -> String {
         let mut last_entry = self.decompression_map.len() as u32;
         let mut ocode = message[0];
-        // print!("{:?}", char::from_u32(ocode).unwrap());
         let mut s = String::default();
         let mut res: String = format!("{}", char::from_u32(ocode).unwrap());
 
         let mut c = char::default();
 
         message.into_iter().skip(1).for_each(|ncode| {
-            // println!("{:?}", ncode);
-            // let new = ncode;
-            // let sc = format!("{}{}", s, c as char);
-            // println!("{:?}", sc);
-
             match self.decompression_map.get(&ncode) {
                 Some(v) => {
-                    // println!("{}\t{}\t{}\tY\tx", s, c, sc);
-                    // s = format!("{}{}", s, c as char);
-                    // println!("{} found: {:?}", ncode, v);
                     s = v.to_string();
                 }
                 None => {
-                    // res.push(*self.compression_map.get(s.as_str()).expect("Table pre-allocated"));
-                    // println!("{}\t{}\t{}\tN\t{}", s, c, sc, my_map.get(s.as_str()).unwrap());
-                    // last_entry += 1;
-                    // self.compression_map.insert(sc, last_entry);
-                    // s = (c as char).to_string();
                     s = char::from_u32(ocode).unwrap().to_string();
                     s = format!("{}{}", s, c);
                 }
             };
-            // print!("{:?}", s);
-            // res.push(s.to_string());
             res = format!("{}{}", res, s);
             c = s.chars().nth(0).unwrap();
             last_entry += 1;
@@ -82,45 +65,34 @@ impl LZW {
             ocode = ncode;
         });
 
-        // res.push(*self.compression_map.get(s.as_str()).expect("Table pre-allocated"));
-
         res
     }
 
     pub fn compress(&mut self, message: Vec<u8>) -> Vec<u32> {
         let mut last_entry = self.compression_map.len() as u32;
         let mut s = (message[0] as char).to_string();
-        // println!("{:?}", s);
-
         let mut res: Vec<u32> = Vec::default();
 
-        message
-            .into_iter()
-            .skip(1)
-            // .zip(257..4096)
-            .for_each(|c| {
-                let sc = format!("{}{}", s, c as char);
-                // println!("{:?}", sc);
+        message.into_iter().skip(1).for_each(|c| {
+            let sc = format!("{}{}", s, c as char);
 
-                match self.compression_map.get(&sc) {
-                    Some(_) => {
-                        // println!("{}\t{}\t{}\tY\tx", s, c, sc);
-                        s = format!("{}{}", s, c as char);
-                    }
-                    None => {
-                        res.push(
-                            *self
-                                .compression_map
-                                .get(s.as_str())
-                                .expect("Table pre-allocated"),
-                        );
-                        // println!("{}\t{}\t{}\tN\t{}", s, c, sc, my_map.get(s.as_str()).unwrap());
-                        last_entry += 1;
-                        self.compression_map.insert(sc, last_entry);
-                        s = (c as char).to_string();
-                    }
-                };
-            });
+            match self.compression_map.get(&sc) {
+                Some(_) => {
+                    s = format!("{}{}", s, c as char);
+                }
+                None => {
+                    res.push(
+                        *self
+                            .compression_map
+                            .get(s.as_str())
+                            .expect("Table pre-allocated"),
+                    );
+                    last_entry += 1;
+                    self.compression_map.insert(sc, last_entry);
+                    s = (c as char).to_string();
+                }
+            };
+        });
 
         res.push(
             *self
@@ -128,8 +100,6 @@ impl LZW {
                 .get(s.as_str())
                 .expect("Table pre-allocated"),
         );
-
-        // println!("{:?}", self.compression_map);
 
         res
     }
