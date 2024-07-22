@@ -8,16 +8,16 @@ fn main() {
 
     // let (comp, decomp) = build_custom_maps();
     // let mut thing = LZW::new(comp, decomp);
-    let mut thing = LZW::default();
+    let mut lzw = LZW::default();
 
     // let uncompressed_size = message.len() as u32;
-    let res = thing.compress(message);
+    let res = lzw.compress(message);
     println!("{:?}", res);
     // let compressed_size = res.len() as u32;
     // let x = thing.calculate_compression_ratio(uncompressed_size, compressed_size);
     // println!("{:?}", x);
 
-    let res = thing.decompress(res);
+    let res = lzw.decompress(res);
     println!("{:?}", res);
 }
 
