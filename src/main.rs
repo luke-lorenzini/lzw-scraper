@@ -3,36 +3,37 @@ use demo::LZW;
 use std::collections::HashMap;
 use std::error::Error;
 
-use tokio::sync::mpsc::channel;
-use tokio::fs;
+use tokio::{fs, sync::mpsc::channel};
+
+type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<()> {
     let (tx, mut rx) = channel(32);
 
     // for i in 0..8 {
-        tokio::spawn({
-            // let tx = tx.clone();
-            async move {
-                // let mut csv_reader = ReaderBuilder::new().trim(Trim::All).from_reader(file);
-                let message = fs::read("./input_text").await.expect("File exists");
+    tokio::spawn({
+        // let tx = tx.clone();
+        async move {
+            // let mut csv_reader = ReaderBuilder::new().trim(Trim::All).from_reader(file);
+            let message = fs::read("./input_text").await.expect("File exists");
 
-                // for result in csv_reader.deserialize() {
-                //     let record: Transaction = result.unwrap();
-                //     // debug!("{:?}", record);
+            // for result in csv_reader.deserialize() {
+            //     let record: Transaction = result.unwrap();
+            //     // debug!("{:?}", record);
 
-                //     if Transactor::is_record_valid(&record) {
-                //         tx.send(record).await.unwrap();
-                //     } else {
-                //         // warn!("Skipping a bad record: {:?}", record);
-                //     }
-                // }
+            //     if Transactor::is_record_valid(&record) {
+            //         tx.send(record).await.unwrap();
+            //     } else {
+            //         // warn!("Skipping a bad record: {:?}", record);
+            //     }
+            // }
 
-                tx.send(message).await.unwrap();
+            tx.send(message).await.unwrap();
 
-                // debug!("Closing thread 1");
-            }
-        });
+            // debug!("Closing thread 1");
+        }
+    });
     // }
 
     let mut lzw = LZW::default();
