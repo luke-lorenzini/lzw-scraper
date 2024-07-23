@@ -1,18 +1,51 @@
 use demo::LZW;
 
 use std::collections::HashMap;
-use std::fs;
+use std::error::Error;
 
-fn main() {
-    let message = fs::read("./input_text").expect("Unable to read file");
+use tokio::sync::mpsc::channel;
+use tokio::fs;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let (tx, mut rx) = channel(32);
+
+    // for i in 0..8 {
+        tokio::spawn({
+            // let tx = tx.clone();
+            async move {
+                // let mut csv_reader = ReaderBuilder::new().trim(Trim::All).from_reader(file);
+                let message = fs::read("./input_text").await.expect("File exists");
+
+                // for result in csv_reader.deserialize() {
+                //     let record: Transaction = result.unwrap();
+                //     // debug!("{:?}", record);
+
+                //     if Transactor::is_record_valid(&record) {
+                //         tx.send(record).await.unwrap();
+                //     } else {
+                //         // warn!("Skipping a bad record: {:?}", record);
+                //     }
+                // }
+
+                tx.send(message).await.unwrap();
+
+                // debug!("Closing thread 1");
+            }
+        });
+    // }
 
     let mut lzw = LZW::default();
 
-    let res = lzw.compress(message);
-    println!("{:?}", res);
+    while let Some(message) = rx.recv().await {
+        let res = lzw.compress(message);
+        println!("{:?}", res);
 
-    let res = lzw.decompress(res);
-    println!("{:?}", res);
+        let res = lzw.decompress(res);
+        println!("{:?}", res);
+    }
+
+    Ok(())
 }
 
 fn _build_custom_maps() -> (HashMap<String, u32>, HashMap<u32, String>) {
