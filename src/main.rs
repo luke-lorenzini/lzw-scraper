@@ -1,50 +1,89 @@
 use demo::LZW;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, thread::JoinHandle};
 use std::error::Error;
 
-use tokio::{fs, sync::mpsc::channel};
+use reqwest::{
+    header::{ACCEPT, CONTENT_TYPE},
+    Client,
+};
+use tokio::{fs, io::Join, sync::mpsc::{channel, Sender}};
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
+async fn start_producer_threads(tx: Sender<Vec<u8>>, number_of_threads: u32, articles_per_thread: u32) -> Result<Vec<tokio::task::JoinHandle<()>>> {
+    let mut join_handles: Vec<tokio::task::JoinHandle<()>> = Vec::default();
+    for _ in 0..number_of_threads {
+        let join_handle = tokio::spawn({
+            let tx = tx.clone();
+            async move {
+                let base_address = String::from("https://en.wikipedia.org");
+                let extension_address = String::from("/wiki/Special:Random");
+                let address = format!("{}{}", base_address, extension_address);
+        
+                let client = Client::new();
+                for _ in 0..articles_per_thread {
+                    let response = client
+                        .get(&format!("{}/accounts", &address))
+                        .header(CONTENT_TYPE, "application/json")
+                        .header(ACCEPT, "application/json")
+                        .send()
+                        .await
+                        .expect("Failed to execute request.");
+        
+                    match response.status() {
+                        reqwest::StatusCode::UNAUTHORIZED => println!("{}", response.status()),
+                        reqwest::StatusCode::OK => {
+                            // println!("response: {:?}", response);
+                            let message = response.bytes().await.unwrap();
+                            
+                            tx.send(message.to_vec()).await.unwrap();
+                        },
+                        _ => todo!("unhandled response: {}", response.status()),
+                    }
+                }
+                println!("Closing thread");
+            }
+        });
+        join_handles.push(join_handle);
+    }
+
+    Ok(join_handles)
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    let (tx, mut rx) = channel(32);
+    let (tx, mut rx) = channel(1024);
 
-    // for i in 0..8 {
-    tokio::spawn({
-        // let tx = tx.clone();
-        async move {
-            // let mut csv_reader = ReaderBuilder::new().trim(Trim::All).from_reader(file);
-            let message = fs::read("./input_text").await.expect("File exists");
-
-            // for result in csv_reader.deserialize() {
-            //     let record: Transaction = result.unwrap();
-            //     // debug!("{:?}", record);
-
-            //     if Transactor::is_record_valid(&record) {
-            //         tx.send(record).await.unwrap();
-            //     } else {
-            //         // warn!("Skipping a bad record: {:?}", record);
-            //     }
-            // }
-
-            tx.send(message).await.unwrap();
-
-            // debug!("Closing thread 1");
-        }
-    });
-    // }
+    start_producer_threads(tx, 50, 5).await?;
 
     let mut lzw = LZW::default();
 
-    while let Some(message) = rx.recv().await {
-        let res = lzw.compress(message);
-        println!("{:?}", res);
+    println!("Waiting for data...");
+    let mut input_message_length = u32::default();
+    let mut output_message_length = u32::default();
 
-        let res = lzw.decompress(res);
-        println!("{:?}", res);
+    let mut message_count = 0;
+    while let Some(message) = rx.recv().await {
+        message_count += 1;
+        println!("pages processed:{:?}, backlog:{:?}", message_count, rx.len());
+        input_message_length += 8 * message.len() as u32;
+        let res = lzw.compress(message);
+        // println!("{:?}", res);
+        output_message_length += res.len() as u32;
+        // fs::write("./output", res).await?;
+        // fs::write(path, contents)
+
+        // let res = lzw.decompress(res);
+        // println!("{:?}", res);
     }
+
+    let ratio = lzw.calculate_compression_ratio(input_message_length, output_message_length);
+    println!("{:?}", ratio);
+
+    // a_thread.await?;
+
+    // x.await.unwrap();
 
     Ok(())
 }
