@@ -1,17 +1,21 @@
 use demo::LZW;
 
-use std::{collections::HashMap, thread::JoinHandle};
+use std::collections::HashMap;
 use std::error::Error;
 
 use reqwest::{
     header::{ACCEPT, CONTENT_TYPE},
     Client,
 };
-use tokio::{fs, io::Join, sync::mpsc::{channel, Sender}};
+use tokio::sync::mpsc::{channel, Sender};
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-async fn start_producer_threads(tx: Sender<Vec<u8>>, number_of_threads: u32, articles_per_thread: u32) -> Result<Vec<tokio::task::JoinHandle<()>>> {
+async fn start_producer_threads(
+    tx: Sender<Vec<u8>>,
+    number_of_threads: u32,
+    articles_per_thread: u32,
+) -> Result<Vec<tokio::task::JoinHandle<()>>> {
     let mut join_handles: Vec<tokio::task::JoinHandle<()>> = Vec::default();
     for _ in 0..number_of_threads {
         let join_handle = tokio::spawn({
@@ -20,7 +24,7 @@ async fn start_producer_threads(tx: Sender<Vec<u8>>, number_of_threads: u32, art
                 let base_address = String::from("https://en.wikipedia.org");
                 let extension_address = String::from("/wiki/Special:Random");
                 let address = format!("{}{}", base_address, extension_address);
-        
+
                 let client = Client::new();
                 for _ in 0..articles_per_thread {
                     let response = client
@@ -30,15 +34,15 @@ async fn start_producer_threads(tx: Sender<Vec<u8>>, number_of_threads: u32, art
                         .send()
                         .await
                         .expect("Failed to execute request.");
-        
+
                     match response.status() {
                         reqwest::StatusCode::UNAUTHORIZED => println!("{}", response.status()),
                         reqwest::StatusCode::OK => {
                             // println!("response: {:?}", response);
                             let message = response.bytes().await.unwrap();
-                            
+
                             tx.send(message.to_vec()).await.unwrap();
-                        },
+                        }
                         _ => todo!("unhandled response: {}", response.status()),
                     }
                 }
@@ -66,7 +70,11 @@ async fn main() -> Result<()> {
     let mut message_count = 0;
     while let Some(message) = rx.recv().await {
         message_count += 1;
-        println!("pages processed:{:?}, backlog:{:?}", message_count, rx.len());
+        println!(
+            "pages processed:{:?}, backlog:{:?}",
+            message_count,
+            rx.len()
+        );
         input_message_length += 8 * message.len() as u32;
         let res = lzw.compress(message);
         // println!("{:?}", res);

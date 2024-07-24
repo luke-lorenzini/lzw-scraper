@@ -105,7 +105,7 @@ impl LZW {
     }
 
     pub fn calculate_compression_ratio(&self, uncompressed: u32, compressed: u32) -> f64 {
-        1. - (compressed as f64 / uncompressed as f64) 
+        1. - (compressed as f64 / uncompressed as f64)
     }
 }
 
