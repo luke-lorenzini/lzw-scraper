@@ -1,13 +1,21 @@
 use demo::LZW;
+use tokio::task;
+// use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelBridge, ParallelIterator};
 
-use std::collections::HashMap;
+use std::sync::Mutex;
+use std::{collections::HashMap, sync::Arc};
 use std::error::Error;
 
+use std::thread::available_parallelism;
+
+use rayon::spawn;
 use reqwest::{
     header::{ACCEPT, CONTENT_TYPE},
     Client,
 };
 use tokio::sync::mpsc::{channel, Sender};
+
+use std::time::Instant;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -55,18 +63,44 @@ async fn start_producer_threads(
     Ok(join_handles)
 }
 
+fn new_maps() -> (HashMap<String, u32>, HashMap<u32, String>) {
+    let mut compression_map = HashMap::new();
+    let mut decompression_map = HashMap::new();
+
+    (0..255).for_each(|i| {
+        compression_map.insert((char::from(i)).to_string(), i as u32);
+        decompression_map.insert(i as u32, (char::from(i)).to_string());
+    });
+
+    (compression_map,decompression_map)
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    let (tx, mut rx) = channel(1024);
+    let (tx, mut rx) = channel(64);
 
-    start_producer_threads(tx, 50, 5).await?;
+    let threads = match available_parallelism() {
+        Ok(t) => usize::from(t),
+        Err(_) => 0,
+    };
+    let pool = rayon::ThreadPoolBuilder::new()
+    .num_threads(threads)
+    .build()
+    .unwrap();
 
-    let mut lzw = LZW::default();
+    start_producer_threads(tx, 10, 200).await?;
+
+    // let mut lzw = LZW::default();
+
+    let (compression_map, decompression_map) = new_maps();
+    let compression_map = Arc::new(Mutex::new(compression_map));
+    let _x_dm = Arc::new(Mutex::new(decompression_map));
 
     println!("Waiting for data...");
-    let mut input_message_length = u32::default();
-    let mut output_message_length = u32::default();
-
+    // let mut input_message_length = u32::default();
+    // let mut output_message_length = u32::default();
+    // let mut lzw = LZW::default();
+    let start = Instant::now();
     let mut message_count = 0;
     while let Some(message) = rx.recv().await {
         message_count += 1;
@@ -75,19 +109,42 @@ async fn main() -> Result<()> {
             message_count,
             rx.len()
         );
-        input_message_length += 8 * message.len() as u32;
-        let res = lzw.compress(message);
+
+        // input_message_length += 8 * message.len() as u32;
+        // let mut compression_map = compression_map.lock().unwrap();
+        // let mut lzw = LZW::default();
+        // lzw.compress(message, &mut compression_map);
         // println!("{:?}", res);
-        output_message_length += res.len() as u32;
+        // output_message_length += res.len() as u32;
         // fs::write("./output", res).await?;
         // fs::write(path, contents)
+        
+        // pool.install({
+        //     let compression_map = compression_map.clone();
+        //     move || {
+        //         let mut lzw = LZW::default();
+        //         let mut compression_map = compression_map.lock().unwrap();
+        //         lzw.compress(message, &mut compression_map);
+        //     }
+        // });
+
+        pool.spawn({
+            let compression_map = compression_map.clone();
+            move || {
+                let mut lzw = LZW::default();
+                let mut compression_map = compression_map.lock().unwrap();
+                lzw.compress(message, &mut compression_map);
+            }
+        });
 
         // let res = lzw.decompress(res);
         // println!("{:?}", res);
     }
+    let dur = start.elapsed();
+    println!("{:?}", dur);
 
-    let ratio = lzw.calculate_compression_ratio(input_message_length, output_message_length);
-    println!("{:?}", ratio);
+    // let ratio = lzw.calculate_compression_ratio(input_message_length, output_message_length);
+    // println!("{:?}", ratio);
 
     // a_thread.await?;
 

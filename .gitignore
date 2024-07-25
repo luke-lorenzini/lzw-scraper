@@ -1,2 +1,6 @@
 /target
 Cargo.lock
+*.svg
+*.data
+.vscode/settings.json
+*.data.old
