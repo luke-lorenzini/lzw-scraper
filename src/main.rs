@@ -1,14 +1,11 @@
-use demo::lzw::{self, LZW};
-use tokio::task;
-// use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelBridge, ParallelIterator};
+use demo::{lzw::LZW, new_maps};
 
-use std::error::Error;
-use std::sync::Mutex;
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    error::Error,
+    sync::{Arc, Mutex},
+    thread,
+};
 
-use std::thread::available_parallelism;
-
-use rayon::spawn;
 use reqwest::{
     header::{ACCEPT, CONTENT_TYPE},
     Client,
@@ -63,24 +60,15 @@ async fn start_producer_threads(
     Ok(join_handles)
 }
 
-fn new_maps() -> (HashMap<String, u32>, HashMap<u32, String>) {
-    let mut compression_map = HashMap::new();
-    let mut decompression_map = HashMap::new();
-
-    (0..255).for_each(|i| {
-        compression_map.insert((char::from(i)).to_string(), i as u32);
-        decompression_map.insert(i as u32, (char::from(i)).to_string());
-    });
-
-    (compression_map, decompression_map)
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
-    let (tx, mut rx) = channel(64);
+    let (tx, mut rx) = channel(512);
 
-    let threads = match available_parallelism() {
-        Ok(t) => usize::from(t),
+    let threads = match thread::available_parallelism() {
+        Ok(t) => {
+            println!("Threads used: {:?}", t);
+            usize::from(t)
+        }
         Err(_) => 0,
     };
     let pool = rayon::ThreadPoolBuilder::new()
@@ -88,7 +76,7 @@ async fn main() -> Result<()> {
         .build()
         .unwrap();
 
-    start_producer_threads(tx, 10, 10).await?;
+    start_producer_threads(tx, 10, 200).await?;
 
     let (compression_map, decompression_map) = new_maps();
     let compression_map = Arc::new(Mutex::new(compression_map));
@@ -108,9 +96,9 @@ async fn main() -> Result<()> {
         );
 
         // input_message_length += 8 * message.len() as u32;
-        let mut compression_map = compression_map.lock().unwrap();
-        let mut lzw = LZW::default();
-        lzw.compress(message, &mut compression_map);
+        // let mut compression_map = compression_map.lock().unwrap();
+        // let mut lzw = LZW::default();
+        // lzw.compress(message, &mut compression_map);
         // println!("{:?}", res);
         // output_message_length += res.len() as u32;
         // fs::write("./output", res).await?;
@@ -125,14 +113,14 @@ async fn main() -> Result<()> {
         //     }
         // });
 
-        // pool.spawn({
-        //     let compression_map = compression_map.clone();
-        //     move || {
-        //         let mut lzw = LZW::default();
-        //         let mut compression_map = compression_map.lock().unwrap();
-        //         lzw.compress(message, &mut compression_map);
-        //     }
-        // });
+        pool.spawn({
+            let compression_map = compression_map.clone();
+            move || {
+                let mut lzw = LZW;
+                let mut compression_map = compression_map.lock().unwrap();
+                lzw.compress(message, &mut compression_map);
+            }
+        });
 
         // let res = lzw.decompress(res);
         // println!("{:?}", res);

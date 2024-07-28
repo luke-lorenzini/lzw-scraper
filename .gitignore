@@ -4,3 +4,4 @@ Cargo.lock
 *.data
 .vscode/settings.json
 *.data.old
+.env
