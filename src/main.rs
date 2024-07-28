@@ -4,6 +4,7 @@ use std::{
     error::Error,
     sync::{Arc, Mutex},
     thread,
+    time::Instant,
 };
 
 use reqwest::{
@@ -11,8 +12,6 @@ use reqwest::{
     Client,
 };
 use tokio::sync::mpsc::{channel, Sender};
-
-use std::time::Instant;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -48,7 +47,7 @@ async fn start_producer_threads(
 
                             tx.send(message.to_vec()).await.unwrap();
                         }
-                        _ => todo!("unhandled response: {}", response.status()),
+                        _ => println!("unhandled response: {}", response.status()),
                     }
                 }
                 println!("Closing thread");
@@ -96,9 +95,8 @@ async fn main() -> Result<()> {
         );
 
         // input_message_length += 8 * message.len() as u32;
-        // let mut compression_map = compression_map.lock().unwrap();
-        // let mut lzw = LZW::default();
-        // lzw.compress(message, &mut compression_map);
+        // let lzw = LZW::default();
+        // lzw.compress(&message, compression_map.clone());
         // println!("{:?}", res);
         // output_message_length += res.len() as u32;
         // fs::write("./output", res).await?;
@@ -107,18 +105,16 @@ async fn main() -> Result<()> {
         // pool.install({
         //     let compression_map = compression_map.clone();
         //     move || {
-        //         let mut lzw = LZW::default();
-        //         let mut compression_map = compression_map.lock().unwrap();
-        //         lzw.compress(message, &mut compression_map);
+        //         let lzw = LZW::default();
+        //         lzw.compress(&message, compression_map);
         //     }
         // });
 
         pool.spawn({
             let compression_map = compression_map.clone();
             move || {
-                let mut lzw = LZW;
-                let mut compression_map = compression_map.lock().unwrap();
-                lzw.compress(message, &mut compression_map);
+                let lzw = LZW;
+                lzw.compress(&message, compression_map);
             }
         });
 

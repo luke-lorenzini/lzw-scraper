@@ -1,17 +1,17 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use demo::{lzw::LZW, new_maps};
 
+use std::sync::{Arc, Mutex};
+
 pub fn criterion_benchmark(c: &mut Criterion) {
-    // c.bench_function("fib 20", |b| b.iter(|| fibonacci(black_box(20))));
-
     let message = Vec::from("TOBEORNOTTOBEORTOBEORNOT");
-    let (mut comp, _) = new_maps();
+    let (compression_map, _) = new_maps();
+    let compression_map = Arc::new(Mutex::new(compression_map));
 
-    let mut thing = LZW::default();
-    // let result = thing.compress(message, &mut comp);
+    let thing = LZW::default();
 
     c.bench_function("compress", |b| {
-        b.iter(|| thing.compress(message.clone(), &mut comp))
+        b.iter(|| thing.compress(black_box(&message), compression_map.clone()))
     });
 }
 

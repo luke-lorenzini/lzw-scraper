@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 pub struct LZW;
 
@@ -49,24 +52,25 @@ impl LZW {
         res
     }
 
-    // #[inline]
+    #[inline]
     pub fn compress(
-        &mut self,
-        message: Vec<u8>,
-        compression_map: &mut HashMap<String, u32>,
+        &self,
+        message: &[u8],
+        compression_map: Arc<Mutex<std::collections::HashMap<String, u32>>>,
     ) -> Vec<u32> {
+        let mut compression_map = compression_map.lock().unwrap();
         let mut last_entry = compression_map.len() as u32;
         let mut s = (message[0] as char).to_string();
         let mut res: Vec<u32> = Vec::default();
 
-        message.into_iter().skip(1).for_each(|c| {
-            let sc = format!("{}{}", s, c as char);
-            // let sc = s.to_owned() + &(c as char).to_string();
+        message.iter().skip(1).for_each(|c| {
+            let sc = format!("{}{}", s, *c as char);
+            // let sc = s.to_owned() + &(*c as char).to_string();
 
             match compression_map.get(&sc) {
                 Some(_) => {
-                    s = format!("{}{}", s, c as char);
-                    // s = s.to_owned() + &(c as char).to_string();
+                    s = format!("{}{}", s, *c as char);
+                    // s = s.to_owned() + &(*c as char).to_string();
                 }
                 None => {
                     res.push(
@@ -76,7 +80,7 @@ impl LZW {
                     );
                     last_entry += 1;
                     compression_map.insert(sc, last_entry);
-                    s = (c as char).to_string();
+                    s = (*c as char).to_string();
                 }
             };
         });
