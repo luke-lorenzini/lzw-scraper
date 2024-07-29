@@ -18,10 +18,11 @@ impl LZW {
 
     // #[inline]
     pub fn decompress(
-        &mut self,
-        message: Vec<u32>,
-        decompression_map: &mut HashMap<u32, String>,
+        &self,
+        message: &[u32],
+        decompression_map: Arc<Mutex<HashMap<u32, String>>>,
     ) -> String {
+        let mut decompression_map = decompression_map.lock().unwrap();
         let mut last_entry = decompression_map.len() as u32;
         let mut ocode = message[0];
         let mut s = String::default();
@@ -29,8 +30,8 @@ impl LZW {
 
         let mut c = char::default();
 
-        message.into_iter().skip(1).for_each(|ncode| {
-            match decompression_map.get(&ncode) {
+        message.iter().skip(1).for_each(|ncode| {
+            match decompression_map.get(ncode) {
                 Some(v) => {
                     s = v.to_string();
                 }
@@ -42,11 +43,9 @@ impl LZW {
             res = format!("{}{}", res, s);
             c = s.chars().nth(0).unwrap();
             last_entry += 1;
-            decompression_map.insert(
-                last_entry,
-                format!("{}{}", decompression_map.get(&ocode).unwrap(), c.to_owned()),
-            );
-            ocode = ncode;
+            let new_val = format!("{}{}", decompression_map.get(&ocode).unwrap(), c.to_owned());
+            decompression_map.insert(last_entry, new_val);
+            ocode = *ncode;
         });
 
         res
@@ -56,7 +55,7 @@ impl LZW {
     pub fn compress(
         &self,
         message: &[u8],
-        compression_map: Arc<Mutex<std::collections::HashMap<String, u32>>>,
+        compression_map: Arc<Mutex<HashMap<String, u32>>>,
     ) -> Vec<u32> {
         let mut compression_map = compression_map.lock().unwrap();
         let mut last_entry = compression_map.len() as u32;

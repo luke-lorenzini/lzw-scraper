@@ -26,10 +26,11 @@ mod tests {
             84, 79, 66, 69, 79, 82, 78, 79, 84, 256, 258, 260, 265, 259, 261, 263,
         ];
 
-        let (_, mut decompression_map) = new_maps();
+        let (_, decompression_map) = new_maps();
+        let decompression_map = Arc::new(Mutex::new(decompression_map));
 
-        let mut thing = LZW::default();
-        let result = thing.decompress(message, &mut decompression_map);
+        let thing = LZW::default();
+        let result = thing.decompress(&message, decompression_map);
 
         let expected_result = String::from("TOBEORNOTTOBEORTOBEORNOT");
 
@@ -55,10 +56,11 @@ mod tests {
     fn decompress_single_char() {
         let message = vec![97];
 
-        let (_, mut decompression_map) = new_maps();
+        let (_, decompression_map) = new_maps();
+        let decompression_map = Arc::new(Mutex::new(decompression_map));
 
-        let mut thing = LZW::default();
-        let result = thing.decompress(message, &mut decompression_map);
+        let thing = LZW::default();
+        let result = thing.decompress(&message, decompression_map);
 
         let expected_result = String::from("a");
 
