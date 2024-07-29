@@ -75,15 +75,14 @@ async fn main() -> Result<()> {
         .build()
         .unwrap();
 
-    let join_handles = start_producer_threads(tx, 5, 20).await?;
+    let join_handles = start_producer_threads(tx, 5, 200).await?;
 
-    let (compression_map, decompression_map) = new_maps();
+    let (compression_map, _decompression_map) = new_maps();
     let compression_map = Arc::new(Mutex::new(compression_map));
     // let decompression_map = Arc::new(Mutex::new(decompression_map));
 
     println!("Waiting for data...");
-    // let mut input_message_length = u32::default();
-    // let mut output_message_length = u32::default();
+
     let start = Instant::now();
     let mut message_count = 0;
     while let Some(message) = rx.recv().await {
@@ -94,12 +93,10 @@ async fn main() -> Result<()> {
             rx.len()
         );
 
-        // input_message_length += 8 * message.len() as u32;
-        let lzw = LZW;
-        let _res = lzw.compress(&message, compression_map.clone());
+        // let lzw = LZW;
+        // let _res = lzw.compress(&message, compression_map.clone());
         // let _res = lzw.decompress(&res, decompression_map.clone());
         // println!("{:?}", res);
-        // output_message_length += res.len() as u32;
 
         // pool.install({
         //     let compression_map = compression_map.clone();
@@ -112,29 +109,19 @@ async fn main() -> Result<()> {
         //     }
         // });
 
-        // pool.spawn({
-        //     let compression_map = compression_map.clone();
-        //     // let decompression_map = decompression_map.clone();
-        //     move || {
-        //         let lzw = LZW;
-        //         let _res = lzw.compress(&message, compression_map);
-        //         // let _res = lzw.decompress(&res, decompression_map);
-        //         // println!("{:?}", res);
-        //     }
-        // });
-
-        // let res = lzw.decompress(res);
-        // println!("{:?}", res);
+        pool.spawn({
+            let compression_map = compression_map.clone();
+            // let decompression_map = decompression_map.clone();
+            move || {
+                let lzw = LZW;
+                let _res = lzw.compress(&message, compression_map);
+                // let _res = lzw.decompress(&res, decompression_map);
+                // println!("{:?}", res);
+            }
+        });
     }
     let dur = start.elapsed();
     println!("{:?}", dur);
-
-    // let ratio = lzw.calculate_compression_ratio(input_message_length, output_message_length);
-    // println!("{:?}", ratio);
-
-    // a_thread.await?;
-
-    // x.await.unwrap();
 
     let mut results = Vec::with_capacity(join_handles.len());
     for handle in join_handles {
